@@ -1,0 +1,2 @@
+clientId = "{REPLACE}"
+clientSecret = "{REPLACE}"
