@@ -1,0 +1,41 @@
+[service]
+cluster = 'dev-private'
+service_env = 'dev'
+service_name = 'slack-router-peoplefirst'
+use_codedeploy = false
+cpu = 1024
+memory = 1024
+
+task_role = '{REMOVED}'
+
+multiarch = true
+arch_list = [
+    'x86_64',
+    'arm64',
+]
+
+port_forwards = [
+    5000,
+]
+
+load_balancers = [
+    'external-services',
+]
+
+regions = [
+    'eu-west-1',
+]
+
+env_vars = []
+
+secrets = [
+    'DB_CREDS:/{REMOVED}',
+]
+
+use_consul = true
+
+[service.routing]
+field = 'path-pattern'
+values = [
+    '/peoplefirst/*'
+]

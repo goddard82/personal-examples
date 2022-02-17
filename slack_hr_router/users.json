@@ -1,0 +1,19 @@
+{
+	"Teams": [
+		{
+			"Name": "test",
+			"Users": [
+				{
+					"Id": "84bbefc7-946f-4034-a507-ad9600a9b065",
+					"PersonalReference": "22236",
+					"Name": "Sue"
+				},
+				{
+					"Id": "69816a04-67d8-4e86-868a-ad9600a9b01f",
+					"PersonalReference": "99952",
+					"Name": "Stevin"
+				}
+			]
+		}
+	]
+}

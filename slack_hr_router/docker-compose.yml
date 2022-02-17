@@ -1,0 +1,35 @@
+version: "3"
+services:
+  db:
+    image: "{REMOVED}/postgres:10.12-alpine"
+    volumes:
+      - "dbdata:/var/lib/postgresql/data"
+    environment:
+      - POSTGRES_USER=opendata
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=opendata
+    ports:
+      - "5432:5432"
+    networks:
+      - db_nw
+  flaskapp:
+    build:
+      context: .
+      dockerfile: ci/dev/Dockerfile
+    environment:
+      DB_CREDS: '{REMOVED}'
+    volumes:
+      - .:/app
+    ports:
+      - "5000:5000"
+    networks:
+      - db_nw
+    depends_on:
+      - db
+networks:
+  db_nw:
+    driver: bridge
+  web_nw:
+    driver: bridge
+volumes:
+  dbdata:
