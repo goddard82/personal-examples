@@ -19,10 +19,10 @@ conn = None
 
 ssm_client = boto3.client('ssm', region_name='eu-west-1')
 ssm_response = ssm_client.get_parameter(
-    Name='/{REMOVED}/peoplefirstbot_token',
+    Name='/{REMOVED}/externalServicebot_token',
     WithDecryption=True
 )
-peoplefirstbot_token = ssm_response['Parameter']['Value']
+externalServicebot_token = ssm_response['Parameter']['Value']
 
 
 ssm_client = boto3.client('ssm', region_name='eu-west-1')
@@ -34,10 +34,10 @@ slack_token = ssm_response_2['Parameter']['Value']
 
 
 ssm_response_3 = ssm_client.get_parameter(
-    Name='/{REMOVED}/peoplefirst-api/hmac',
+    Name='/{REMOVED}/externalService-api/hmac',
     WithDecryption=True
 )
-peoplefirst_hmac = ssm_response_3['Parameter']['Value']
+externalService_hmac = ssm_response_3['Parameter']['Value']
 
 
 @app.errorhandler(JsonValidationError)
@@ -57,7 +57,8 @@ def not_found(error):
 
 
 
-@app.route('/peoplefirst/webhook', methods=['POST', 'GET'])
+#dev endpoint to check that the verification is operating correctly
+@app.route('/externalService/webhook', methods=['POST', 'GET'])
 def respond():
     logging.info(request.data)
     print(request.headers)
@@ -66,7 +67,7 @@ def respond():
     request_body = str(jsonresp)
     event_data = jsonresp.get('EventData')
 
-    if validate_hmac(request.data) == request.headers.get('Peoplefirst-Signature'):
+    if validate_hmac(request.data) == request.headers.get('externalService-Signature'):
         url = "https://slack.com/api/chat.postMessage"
         payload = request.json
         querystring = {"channel": "{REMOVED}", "text": str(request.headers) + '\n' + "h success"}
@@ -77,7 +78,7 @@ def respond():
     else:
         url = "https://slack.com/api/chat.postMessage"
         payload = request.json
-        querystring = {"channel": "{REMOVED}", "text": "h failed: " + str(request_body) + '\n' + validate_hmac(request.data) + '\n' + request.headers.get('Peoplefirst-Signature')}
+        querystring = {"channel": "{REMOVED}", "text": "h failed: " + str(request_body) + '\n' + validate_hmac(request.data) + '\n' + request.headers.get('externalService-Signature')}
         headers = {'authorization': 'Bearer ' + str(slack_token)}
         response = requests.request("POST", url, data=payload, headers=headers, params=querystring)
         print(response.text)
@@ -85,6 +86,7 @@ def respond():
         # return 404
 
 
+#returns an array of dates for the current week, in strftime(%Y-%m-%d) format
 def this_week():
     week_start = datetime.datetime.today() - datetime.timedelta(days=datetime.datetime.today().weekday() % 7)
     end_dt = week_start + datetime.timedelta(days=4)
@@ -95,16 +97,18 @@ def this_week():
     return this_week_list
 
 
+#deletes the previous reminder
 def delete_previous():
     url = "https://{REMOVED}/delete"
     querystring = {"team": "backend"}
     payload = ""
-    headers = json.loads(peoplefirstbot_token)
+    headers = json.loads(externalServicebot_token)
     response = requests.request("GET", url, data=payload, headers=headers, params=querystring)
     jsonresult = response.json()
     return jsonresult
 
 
+#uses a json file and returns a list of teams that a given user is a part of
 def resolve_user_to_team(employee_id):
     user_teams = []
     with open('./users.json') as json_data_file:
@@ -122,24 +126,26 @@ def resolve_user_to_team(employee_id):
     return user_teams
 
 
+#takes the request body and returns it in a decoded hash (ascii)
 def validate_hmac(request_body):
-    pfkey_bytes = base64.b64decode(peoplefirst_hmac)
-    pfhash = hmac.digest(pfkey_bytes, request_body, "sha256")  # is this hash function correct?
+    pfkey_bytes = base64.b64decode(externalService_hmac)
+    pfhash = hmac.digest(pfkey_bytes, request_body, "sha256")
     b64hash = base64.b64encode(pfhash)
     return b64hash.decode('ascii')
 
 
-@app.route('/peoplefirst/holiday', methods=['POST'])
+#validates the incoming request from the external HR service.
+@app.route('/externalService/holiday', methods=['POST'])
 def validate_incoming():
     """Four stage verification of the incoming request - if it's an event this week and an event by a team member"""
     weekend = ['Sat', 'Sun']
     if datetime.datetime.today().strftime("%a") in weekend:
         logging.info('Not sending reminder on the weekend')
     else:
-        if request.headers.get('Peoplefirst-Signature'):
+        if request.headers.get('externalService-Signature'):
             event = request.json
             request_body = str(event)
-            if validate_hmac(request.data) == request.headers.get('Peoplefirst-Signature'):
+            if validate_hmac(request.data) == request.headers.get('externalService-Signature'):
                 event_data = event.get('EventData')
                 absence_type = event_data.get('absenceTypeCode')
                 person_id = event_data.get('personId')
@@ -175,8 +181,9 @@ def validate_incoming():
             return jsonify({'error': 'Unauthorized access'}), 403
 
 
-@app.route('/peoplefirst/health', methods=['GET'])
-def peoplefirst_health():
+#health endpoint, required for ECS deployment.
+@app.route('/externalService/health', methods=['GET'])
+def externalService_health():
     return {'message': 'Healthy'}, 200
 
 
